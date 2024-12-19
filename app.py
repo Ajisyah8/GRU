@@ -26,7 +26,7 @@ def plot_predictions(y_train_rescaled, train_pred_rescaled, y_test_rescaled, y_p
     st.pyplot(plt)
 
 # Judul aplikasi
-st.title("Temperature Prediction Using GRU")
+st.title("SITEMP")
 
 # Tab untuk dashboard
 tabs = st.tabs(["📊 Data Overview", "⚙️ Configure & Train", "📈 Evaluation", "🔮 Future Prediction"])
@@ -36,8 +36,22 @@ with tabs[0]:
 
     # Input data dari pengguna
     uploaded_file = st.file_uploader("Upload a CSV file with 'Tanggal' and 'Tavg' columns", type=["csv"])
+
     if uploaded_file is not None:
-        data = pd.read_csv(uploaded_file)
+        try:
+            data = pd.read_csv(uploaded_file)
+        except UnicodeDecodeError:
+            st.warning("Error decoding file. Trying with alternative encoding...")
+            uploaded_file.seek(0)
+            data = pd.read_csv(uploaded_file, encoding='latin1')  # Ganti encoding jika diperlukan
+
+        # Validasi kolom
+        expected_columns = ['Tanggal', 'Tavg']
+        if all(column in data.columns for column in expected_columns):
+            st.success("Dataset is valid!")
+        else:
+            st.error(f"Dataset harus memiliki kolom berikut: {expected_columns}")
+            st.stop()
     else:
         st.info("Using default dataset")
         url = "https://raw.githubusercontent.com/Ajisyah8/Dataset/refs/heads/master/cleaned_temperature_data.csv"
@@ -45,11 +59,13 @@ with tabs[0]:
 
     # Menampilkan dataset
     st.write("### Dataset")
-    st.dataframe(data.head())
+    st.dataframe(data.head(730), width=1200)
 
     # Preprocessing data
     data['Tanggal'] = pd.to_datetime(data['Tanggal'], format='%d-%m-%Y')
     data.set_index('Tanggal', inplace=True)
+
+    data['Tavg'] = data['Tavg'].astype(str).replace(',', '.', regex=True).astype(float)
 
     scaler = MinMaxScaler()
     data['Tavg'] = scaler.fit_transform(data[['Tavg']])
@@ -70,25 +86,36 @@ with tabs[1]:
     batch_size = st.number_input("Batch size", min_value=1, max_value=256, value=64)
     epochs = st.number_input("Number of epochs", min_value=1, max_value=500, value=50)
 
+    # Tambahkan pengaturan jumlah hari prediksi
+    n_future = st.number_input("Number of future days to predict", min_value=1, max_value=30, value=7)
+
     apply_training = st.button("Apply & Train Model")
     if apply_training:
-        # Pembagian data
-        train_start = "2022-01-01"
-        train_end = "2023-05-27"
-        test_start = "2023-05-28"
-        test_end = "2023-12-31"
+        # Checking if we are using the default dataset or uploaded dataset
+        if uploaded_file is None:
+            # Default dataset split
+            train_start = "2022-01-01"
+            train_end = "2023-05-27"
+            test_start = "2023-05-28"
+            test_end = "2023-12-31"
 
-        train_data = data.loc[train_start:train_end]
-        test_data = data.loc[test_start:test_end]
+            train_data = data.loc[train_start:train_end]
+            test_data = data.loc[test_start:test_end]
+        else:
+            # For uploaded dataset, use 80% for training and 20% for testing automatically
+            train_data = data[:int(len(data) * 0.7)]
+            test_data = data[int(len(data) * 0.7):]
 
+        # Create sequences for the training and test data
         X_train, y_train = create_sequences(train_data['Tavg'].values, time_steps)
         X_test, y_test = create_sequences(test_data['Tavg'].values, time_steps)
 
+        # Reshape data for GRU input
         X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
         X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
         # Model GRU
-        model = Sequential([
+        model = Sequential([ 
             GRU(neurons, activation='tanh', return_sequences=False, input_shape=(time_steps, 1)),
             Dense(1)
         ])
@@ -139,7 +166,6 @@ with tabs[3]:
     if apply_training:
         # Prediksi masa depan
         last_input = X_test[-1]
-        n_future = st.number_input("Number of future days to predict", min_value=1, max_value=30, value=7)
         future_predictions = []
 
         for _ in range(n_future):
@@ -154,6 +180,6 @@ with tabs[3]:
         })
 
         st.write("### Future Predictions")
-        st.dataframe(future_df)
+        st.dataframe(future_df, width=1200)
     else:
         st.warning("Please apply and train the model first!")
