@@ -54,7 +54,7 @@ with tabs[0]:
             st.stop()
     else:
         st.info("Using default dataset")
-        url = "https://raw.githubusercontent.com/Ajisyah8/Dataset/refs/heads/master/cleaned_temperature_data.csv"
+        url = "https://raw.githubusercontent.com/Ajisyah8/Dataset/refs/heads/master/temperature_data.csv"
         data = pd.read_csv(url)
 
     # Menampilkan dataset
