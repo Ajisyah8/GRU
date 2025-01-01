@@ -120,16 +120,17 @@ else:
                     uploaded_file.seek(0)
                     data = pd.read_csv(uploaded_file, encoding='latin1')
 
-                expected_columns = ['Tanggal', 'Tavg']
-                if all(column in data.columns for column in expected_columns):
-                    st.success("Dataset is valid!")
-                else:
-                    st.error(f"Dataset must have the following columns: {expected_columns}")
-                    st.stop()
-            else:
-                st.info("Using default dataset")
-                url = "https://raw.githubusercontent.com/Ajisyah8/Dataset/refs/heads/master/temperature_data.csv"
-                data = pd.read_csv(url)
+        # Validasi kolom
+        expected_columns = ['Tanggal', 'Tavg']
+        if all(column in data.columns for column in expected_columns):
+            st.success("Dataset is valid!")
+        else:
+            st.error(f"Dataset harus memiliki kolom berikut: {expected_columns}")
+            st.stop()
+    else:
+        st.info("Using default dataset")
+        url = "https://raw.githubusercontent.com/Ajisyah8/Dataset/refs/heads/master/cleaned_temperature_data.csv"
+        data = pd.read_csv(url)
 
             # Display the dataset
             st.write("### Dataset")
